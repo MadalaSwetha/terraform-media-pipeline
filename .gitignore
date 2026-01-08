@@ -37,3 +37,17 @@ __pycache__/
 # OS-specific junk
 .DS_Store
 Thumbs.db
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+tfplan
+crash.log
+*.tfvars
+
+# Jenkins
+*.log
+
+# OS/editor
+.DS_Store
+Thumbs.db

@@ -1,0 +1,17 @@
+# files/docker-compose.yml (optional local reference)
+services:
+  jenkins:
+    image: jenkins/jenkins:lts
+    ports: ["8080:8080","50000:50000"]
+    volumes: ["/opt/stack/jenkins:/var/jenkins_home"]
+    restart: unless-stopped
+  prometheus:
+    image: prom/prometheus
+    ports: ["9090:9090"]
+    volumes: ["/opt/stack/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml"]
+    restart: unless-stopped
+  grafana:
+    image: grafana/grafana
+    ports: ["3000:3000"]
+    volumes: ["/opt/stack/grafana:/var/lib/grafana"]
+    restart: unless-stopped
