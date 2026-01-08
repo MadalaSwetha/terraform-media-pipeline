@@ -4,19 +4,29 @@ pipeline {
   environment {
     AWS_REGION = 'us-east-1'
     TF_VAR_aws_region = "${AWS_REGION}"
-    // Bind AWS credentials securely in Jenkins (Manage Jenkins → Credentials)
+
+    // Securely bind AWS credentials stored in Jenkins Credentials Manager
     AWS_ACCESS_KEY_ID = credentials('aws-access-key')
     AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
   }
 
   stages {
     stage('Checkout') {
-  steps {
-    git url: 'https://github.com/MadalaSwetha/terraform-media-pipeline.git',
-        branch: 'main',
-        tool: 'DefaultGit'
-  }
-}
+      steps {
+        // Use the configured Git tool
+        git url: 'https://github.com/MadalaSwetha/terraform-media-pipeline.git',
+            branch: 'main',
+            tool: 'DefaultGit'
+      }
+    }
+
+    stage('Build Lambda') {
+      steps {
+        // Package Lambda code and upload to S3 bucket
+        bat 'powershell Compress-Archive -Path src\\* -DestinationPath lambda.zip -Force'
+        bat 'aws s3 cp lambda.zip s3://swetha-lambda-code-2026/lambda/media_lambda.zip'
+      }
+    }
 
     stage('Terraform Init') {
       steps {
@@ -57,7 +67,6 @@ pipeline {
 
     stage('Post-Deploy') {
       steps {
-        // Show Terraform outputs (Grafana, Prometheus, Jenkins, S3, Lambda)
         bat 'terraform output || exit 0'
 
         script {
