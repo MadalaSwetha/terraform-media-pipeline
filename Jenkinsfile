@@ -26,23 +26,5 @@ pipeline {
                 bat 'terraform apply tfplan'
             }
         }
-
-        stage('Build WAR') {
-            steps {
-                bat 'mvn clean package'
-            }
-        }
-
-        stage('Deploy WAR to Tomcat') {
-            steps {
-                bat 'copy target\\myapp.war "C:\\apache-tomcat-10.1.XX\\webapps\\"'
-            }
-        }
-
-        stage('Smoke Test') {
-            steps {
-                bat 'curl -I http://localhost:8080/myapp'
-            }
-        }
-    }
+   }
 }
