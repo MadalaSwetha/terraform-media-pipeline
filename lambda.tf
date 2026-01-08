@@ -4,7 +4,7 @@ resource "aws_lambda_function" "media_lambda" {
   handler       = "lambda_function.lambda_handler"
   runtime       = "python3.9"
 
-  filename      = "lambda_function.zip"
+  filename = "lambda_function.zip"
 
   environment {
     variables = {
