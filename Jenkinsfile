@@ -11,10 +11,12 @@ pipeline {
 
   stages {
     stage('Checkout') {
-      steps {
-        git url: 'https://github.com/MadalaSwetha/terraform-media-pipeline.git', branch: 'main'
-      }
-    }
+  steps {
+    git url: 'https://github.com/MadalaSwetha/terraform-media-pipeline.git',
+        branch: 'main',
+        tool: 'DefaultGit'
+  }
+}
 
     stage('Terraform Init') {
       steps {
