@@ -13,9 +13,8 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        // Use the configured Git tool
         git url: 'https://github.com/MadalaSwetha/terraform-media-pipeline.git',
-            branch: 'main',
+            branch: 'main'
       }
     }
 
@@ -72,9 +71,10 @@ pipeline {
           def grafanaUrl = bat(script: "terraform output -raw grafana_url", returnStdout: true).trim()
           def prometheusUrl = bat(script: "terraform output -raw prometheus_url", returnStdout: true).trim()
           def jenkinsUrl = bat(script: "terraform output -raw jenkins_url", returnStdout: true).trim()
-          echo "Grafana available at: ${grafanaUrl}"
-          echo "Prometheus available at: ${prometheusUrl}"
-          echo "Jenkins available at: ${jenkinsUrl}"
+
+          echo "✅ Grafana available at: ${grafanaUrl}"
+          echo "✅ Prometheus available at: ${prometheusUrl}"
+          echo "✅ Jenkins available at: ${jenkinsUrl}"
         }
       }
     }
