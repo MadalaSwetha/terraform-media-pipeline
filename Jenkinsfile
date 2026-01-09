@@ -44,22 +44,22 @@ pipeline {
       }
     }
 
-    stage('Apply') {
+    stage('Build Lambda') {
       steps {
+        // Package Lambda code before apply
+        bat 'powershell Compress-Archive -Path lambda_function.py -DestinationPath lambda_function.zip -Force'
+
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
-          bat 'terraform apply -auto-approve tfplan'
+          // Upload ZIP to the bucket that Terraform references
+          bat 'aws s3 cp lambda_function.zip s3://swetha-lambda-code-2026/lambda/media_lambda.zip --region us-east-1'
         }
       }
     }
 
-    stage('Build Lambda') {
+    stage('Apply') {
       steps {
-        // Now the bucket exists because Terraform applied s3.tf
-        bat 'powershell Compress-Archive -Path lambda_function.py -DestinationPath lambda_function.zip -Force'
-
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
-          // Upload Lambda ZIP to the bucket created by Terraform
-          bat 'aws s3 cp lambda_function.zip s3://swetha-lambda-code-2026/lambda/media_lambda.zip --region us-east-1'
+          bat 'terraform apply -auto-approve tfplan'
         }
       }
     }
