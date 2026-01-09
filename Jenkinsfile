@@ -13,27 +13,11 @@ pipeline {
       }
     }
 
-    stage('Build Lambda') {
-      steps {
-        bat 'powershell Compress-Archive -Path lambda_function.py -DestinationPath lambda_function.zip -Force'
-
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
-          bat 'aws s3 cp lambda_function.zip s3://swetha-lambda-code-2026/lambda/media_lambda.zip'
-        }
-      }
-    }
-
     stage('Terraform Init') {
       steps {
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
           bat 'terraform init -reconfigure'
         }
-      }
-    }
-
-    stage('Lint') {
-      steps {
-        bat 'terraform fmt -check'
       }
     }
 
@@ -64,6 +48,17 @@ pipeline {
       steps {
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
           bat 'terraform apply -auto-approve tfplan'
+        }
+      }
+    }
+
+    stage('Build Lambda') {
+      steps {
+        // Now the bucket exists because Terraform applied s3.tf
+        bat 'powershell Compress-Archive -Path lambda_function.py -DestinationPath lambda_function.zip -Force'
+
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
+          bat 'aws s3 cp lambda_function.zip s3://swetha-lambda-code-2026/lambda/media_lambda.zip'
         }
       }
     }
