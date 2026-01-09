@@ -1,64 +1,109 @@
-########################################
-# Application Data Bucket (media_bucket)
-########################################
-resource "aws_s3_bucket" "media_bucket" {
-  bucket = "swetha-media-pipeline-2026"
+pipeline {
+  agent any
 
-  tags = {
-    Name    = "media_bucket"
-    Project = "media-pipeline"
+  environment {
+    AWS_REGION = 'us-east-1'
+    TF_VAR_aws_region = "${AWS_REGION}"
   }
 
-  force_destroy = true
-}
+  stages {
+    stage('Checkout') {
+      steps {
+        git url: 'https://github.com/MadalaSwetha/terraform-media-pipeline.git', branch: 'main'
+      }
+    }
 
-resource "aws_s3_bucket_versioning" "media_bucket_versioning" {
-  bucket = aws_s3_bucket.media_bucket.id
+    stage('Terraform Init') {
+      steps {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
+          bat 'terraform init -reconfigure'
+        }
+      }
+    }
 
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
+    stage('Validate') {
+      steps {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
+          bat 'terraform validate'
+        }
+      }
+    }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "media_bucket_encryption" {
-  bucket = aws_s3_bucket.media_bucket.id
+    stage('Plan') {
+      steps {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
+          bat 'terraform plan -out=tfplan'
+          archiveArtifacts artifacts: 'tfplan', fingerprint: true
+        }
+      }
+    }
 
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+    stage('Approval') {
+      steps {
+        input message: 'Apply infrastructure changes?'
+      }
+    }
+
+    stage('Build Lambda') {
+      steps {
+        // Package Lambda code before apply
+        bat 'powershell Compress-Archive -Path lambda_function.py -DestinationPath lambda_function.zip -Force'
+
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
+          // Upload ZIP to the bucket that Terraform references
+          bat 'aws s3 cp lambda_function.zip s3://swetha-lambda-code-2026/lambda/media_lambda.zip --region us-east-1'
+        }
+      }
+    }
+
+    stage('Apply') {
+      steps {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
+          bat 'terraform apply -auto-approve tfplan'
+        }
+      }
+    }
+
+    stage('Post-Deploy') {
+      steps {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
+          bat 'terraform output || exit 0'
+
+          script {
+            def grafanaUrl = bat(script: "terraform output -raw grafana_url", returnStdout: true).trim()
+            def prometheusUrl = bat(script: "terraform output -raw prometheus_url", returnStdout: true).trim()
+            def jenkinsUrl = bat(script: "terraform output -raw jenkins_url", returnStdout: true).trim()
+
+            echo "✅ Grafana available at: ${grafanaUrl}"
+            echo "✅ Prometheus available at: ${prometheusUrl}"
+            echo "✅ Jenkins available at: ${jenkinsUrl}"
+          }
+        }
+      }
+    }
+
+    stage('Destroy (Optional)') {
+      when {
+        expression { return params.DESTROY == true }
+      }
+      steps {
+        input message: 'Confirm destroy infrastructure?'
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
+          bat 'terraform destroy -auto-approve'
+        }
+      }
     }
   }
-}
 
-########################################
-# Lambda Deployment Bucket (lambda_bucket)
-########################################
-resource "aws_s3_bucket" "lambda_bucket" {
-  bucket = "swetha-lambda-code-2026"
-
-  tags = {
-    Name    = "lambda_bucket"
-    Project = "media-pipeline"
-  }
-
-  force_destroy = true
-}
-
-########################################
-# Lambda Function referencing S3 bucket
-########################################
-resource "aws_lambda_function" "media_lambda" {
-  function_name = "media_lambda"
-  s3_bucket     = aws_s3_bucket.lambda_bucket.id
-  s3_key        = "lambda/media_lambda.zip"
-  handler       = "index.handler"
-  runtime       = "python3.9"
-  role          = aws_iam_role.lambda_role.arn
-
-  depends_on = [aws_iam_role.lambda_role]
-
-  tags = {
-    Name    = "media_lambda"
-    Project = "media-pipeline"
+  post {
+    always {
+      echo "Pipeline finished. Check Terraform state and outputs."
+    }
+    success {
+      echo "Infrastructure applied successfully!"
+    }
+    failure {
+      echo "Pipeline failed. Investigate logs."
+    }
   }
 }
