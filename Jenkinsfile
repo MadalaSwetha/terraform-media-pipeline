@@ -2,33 +2,38 @@ pipeline {
   agent any
 
   environment {
+    AWS_CREDS = credentials('aws_creds') // Your Jenkins credential ID
     AWS_REGION = 'us-east-1'
     TF_VAR_aws_region = "${AWS_REGION}"
-
-    // Securely bind AWS credentials stored in Jenkins Credentials Manager
-    AWS_ACCESS_KEY_ID = credentials('aws-access-key')
-    AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key')
   }
 
   stages {
     stage('Checkout') {
       steps {
-        git url: 'https://github.com/MadalaSwetha/terraform-media-pipeline.git',
-            branch: 'main'
+        git url: 'https://github.com/MadalaSwetha/terraform-media-pipeline.git', branch: 'main'
       }
     }
 
     stage('Build Lambda') {
       steps {
-        // Package Lambda code and upload to S3 bucket
         bat 'powershell Compress-Archive -Path src\\* -DestinationPath lambda.zip -Force'
-        bat 'aws s3 cp lambda.zip s3://swetha-lambda-code-2026/lambda/media_lambda.zip'
+        withEnv([
+          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
+          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
+        ]) {
+          bat 'aws s3 cp lambda.zip s3://swetha-lambda-code-2026/lambda/media_lambda.zip'
+        }
       }
     }
 
     stage('Terraform Init') {
       steps {
-        bat 'terraform init -reconfigure'
+        withEnv([
+          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
+          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
+        ]) {
+          bat 'terraform init -reconfigure'
+        }
       }
     }
 
@@ -40,14 +45,24 @@ pipeline {
 
     stage('Validate') {
       steps {
-        bat 'terraform validate'
+        withEnv([
+          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
+          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
+        ]) {
+          bat 'terraform validate'
+        }
       }
     }
 
     stage('Plan') {
       steps {
-        bat 'terraform plan -out=tfplan'
-        archiveArtifacts artifacts: 'tfplan', fingerprint: true
+        withEnv([
+          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
+          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
+        ]) {
+          bat 'terraform plan -out=tfplan'
+          archiveArtifacts artifacts: 'tfplan', fingerprint: true
+        }
       }
     }
 
@@ -59,22 +74,32 @@ pipeline {
 
     stage('Apply') {
       steps {
-        bat 'terraform apply -auto-approve tfplan'
+        withEnv([
+          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
+          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
+        ]) {
+          bat 'terraform apply -auto-approve tfplan'
+        }
       }
     }
 
     stage('Post-Deploy') {
       steps {
-        bat 'terraform output || exit 0'
+        withEnv([
+          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
+          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
+        ]) {
+          bat 'terraform output || exit 0'
 
-        script {
-          def grafanaUrl = bat(script: "terraform output -raw grafana_url", returnStdout: true).trim()
-          def prometheusUrl = bat(script: "terraform output -raw prometheus_url", returnStdout: true).trim()
-          def jenkinsUrl = bat(script: "terraform output -raw jenkins_url", returnStdout: true).trim()
+          script {
+            def grafanaUrl = bat(script: "terraform output -raw grafana_url", returnStdout: true).trim()
+            def prometheusUrl = bat(script: "terraform output -raw prometheus_url", returnStdout: true).trim()
+            def jenkinsUrl = bat(script: "terraform output -raw jenkins_url", returnStdout: true).trim()
 
-          echo "✅ Grafana available at: ${grafanaUrl}"
-          echo "✅ Prometheus available at: ${prometheusUrl}"
-          echo "✅ Jenkins available at: ${jenkinsUrl}"
+            echo "✅ Grafana available at: ${grafanaUrl}"
+            echo "✅ Prometheus available at: ${prometheusUrl}"
+            echo "✅ Jenkins available at: ${jenkinsUrl}"
+          }
         }
       }
     }
@@ -85,7 +110,12 @@ pipeline {
       }
       steps {
         input message: 'Confirm destroy infrastructure?'
-        bat 'terraform destroy -auto-approve'
+        withEnv([
+          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
+          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
+        ]) {
+          bat 'terraform destroy -auto-approve'
+        }
       }
     }
   }
