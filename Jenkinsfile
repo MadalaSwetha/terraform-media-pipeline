@@ -15,11 +15,9 @@ pipeline {
 
     stage('Build Lambda') {
       steps {
-        // Package the Lambda function file into a zip
         bat 'powershell Compress-Archive -Path lambda_function.py -DestinationPath lambda_function.zip -Force'
 
-        // Upload to S3 bucket
-        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
           bat 'aws s3 cp lambda_function.zip s3://swetha-lambda-code-2026/lambda/media_lambda.zip'
         }
       }
@@ -33,9 +31,15 @@ pipeline {
       }
     }
 
+    stage('Lint') {
+      steps {
+        bat 'terraform fmt -check'
+      }
+    }
+
     stage('Validate') {
       steps {
-        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
           bat 'terraform validate'
         }
       }
@@ -43,7 +47,7 @@ pipeline {
 
     stage('Plan') {
       steps {
-        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
           bat 'terraform plan -out=tfplan'
           archiveArtifacts artifacts: 'tfplan', fingerprint: true
         }
@@ -58,7 +62,7 @@ pipeline {
 
     stage('Apply') {
       steps {
-        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
           bat 'terraform apply -auto-approve tfplan'
         }
       }
@@ -66,7 +70,7 @@ pipeline {
 
     stage('Post-Deploy') {
       steps {
-        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
           bat 'terraform output || exit 0'
 
           script {
@@ -88,7 +92,7 @@ pipeline {
       }
       steps {
         input message: 'Confirm destroy infrastructure?'
-        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
           bat 'terraform destroy -auto-approve'
         }
       }
