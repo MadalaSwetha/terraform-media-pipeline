@@ -1,7 +1,7 @@
 // ec2.tf
 resource "aws_key_pair" "ssh_key" {
-  key_name   = "${var.project}-key"
-  public_key = file(var.ssh_public_key_path)
+  key_name   = "media-pipeline-key"
+  public_key = file("${path.module}/media-pipeline-key.pub")
 }
 
 resource "aws_instance" "jenkins_host" {
