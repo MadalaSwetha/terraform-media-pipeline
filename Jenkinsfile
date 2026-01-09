@@ -16,7 +16,7 @@ pipeline {
 
     stage('Build Lambda') {
       steps {
-        bat 'powershell Compress-Archive -Path src\\* -DestinationPath lambda.zip -Force'
+        bat 'powershell Compress-Archive -Path lambda_function.py -DestinationPath lambda_function.zip -Force'
         withEnv([
           "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
           "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
