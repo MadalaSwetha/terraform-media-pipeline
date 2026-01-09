@@ -58,7 +58,8 @@ pipeline {
         bat 'powershell Compress-Archive -Path lambda_function.py -DestinationPath lambda_function.zip -Force'
 
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
-          bat 'aws s3 cp lambda_function.zip s3://swetha-lambda-code-2026/lambda/media_lambda.zip'
+          // Upload Lambda ZIP to the bucket created by Terraform
+          bat 'aws s3 cp lambda_function.zip s3://swetha-lambda-code-2026/lambda/media_lambda.zip --region us-east-1'
         }
       }
     }
