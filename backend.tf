@@ -6,3 +6,4 @@ terraform {
     use_lockfile = true        # replaces dynamodb_table
   }
 }
+
