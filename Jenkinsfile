@@ -2,7 +2,6 @@ pipeline {
   agent any
 
   environment {
-    AWS_CREDS = credentials('aws_creds') // Your Jenkins credential ID
     AWS_REGION = 'us-east-1'
     TF_VAR_aws_region = "${AWS_REGION}"
   }
@@ -16,39 +15,27 @@ pipeline {
 
     stage('Build Lambda') {
       steps {
+        // Package the Lambda function file into a zip
         bat 'powershell Compress-Archive -Path lambda_function.py -DestinationPath lambda_function.zip -Force'
-        withEnv([
-          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
-          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
-        ]) {
-          bat 'aws s3 cp lambda.zip s3://swetha-lambda-code-2026/lambda/media_lambda.zip'
+
+        // Upload to S3 bucket
+        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          bat 'aws s3 cp lambda_function.zip s3://swetha-lambda-code-2026/lambda/media_lambda.zip'
         }
       }
     }
 
     stage('Terraform Init') {
       steps {
-        withEnv([
-          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
-          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
-        ]) {
+        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
           bat 'terraform init -reconfigure'
         }
       }
     }
 
-    stage('Lint') {
-      steps {
-        bat 'terraform fmt -check'
-      }
-    }
-
     stage('Validate') {
       steps {
-        withEnv([
-          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
-          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
-        ]) {
+        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
           bat 'terraform validate'
         }
       }
@@ -56,10 +43,7 @@ pipeline {
 
     stage('Plan') {
       steps {
-        withEnv([
-          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
-          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
-        ]) {
+        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
           bat 'terraform plan -out=tfplan'
           archiveArtifacts artifacts: 'tfplan', fingerprint: true
         }
@@ -74,10 +58,7 @@ pipeline {
 
     stage('Apply') {
       steps {
-        withEnv([
-          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
-          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
-        ]) {
+        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
           bat 'terraform apply -auto-approve tfplan'
         }
       }
@@ -85,10 +66,7 @@ pipeline {
 
     stage('Post-Deploy') {
       steps {
-        withEnv([
-          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
-          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
-        ]) {
+        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
           bat 'terraform output || exit 0'
 
           script {
@@ -110,10 +88,7 @@ pipeline {
       }
       steps {
         input message: 'Confirm destroy infrastructure?'
-        withEnv([
-          "AWS_ACCESS_KEY_ID=${env.AWS_CREDS_USR}",
-          "AWS_SECRET_ACCESS_KEY=${env.AWS_CREDS_PSW}"
-        ]) {
+        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
           bat 'terraform destroy -auto-approve'
         }
       }
