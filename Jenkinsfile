@@ -27,7 +27,7 @@ pipeline {
 
     stage('Terraform Init') {
       steps {
-        withCredentials([usernamePassword(credentialsId: 'aws_creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
           bat 'terraform init -reconfigure'
         }
       }
