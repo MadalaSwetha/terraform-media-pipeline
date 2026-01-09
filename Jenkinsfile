@@ -16,7 +16,6 @@ pipeline {
         // Use the configured Git tool
         git url: 'https://github.com/MadalaSwetha/terraform-media-pipeline.git',
             branch: 'main',
-            tool: 'DefaultGit'
       }
     }
 
